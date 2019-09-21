@@ -1,3 +1,4 @@
+global.Buffer = global.Buffer || require('buffer').Buffer
 import { parse } from '@deepstream/protobuf/dist/src/message-parser'
 import { getMessage } from '@deepstream/protobuf/dist/src/message-builder'
 import {Socket} from '../client'
