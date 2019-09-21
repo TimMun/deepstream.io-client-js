@@ -7,7 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 //   UniformResourceLocator = URL
 // }
 // Force using url from package.json
-var UniformResourceLocator = require('url').URL;
+var UniformResourceLocator = require('url-parse');
 /**
  * Compares two objects for deep (recoursive) equality
  *
