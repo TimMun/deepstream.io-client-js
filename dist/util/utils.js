@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 // } else {
 //   UniformResourceLocator = URL
 // }
-// Force using url from package.json
+// Force using url-parse from package.json
 var UniformResourceLocator = require('url-parse');
 /**
  * Compares two objects for deep (recoursive) equality
@@ -99,10 +99,10 @@ exports.parseUrl = function (initialURl, defaultPath) {
     }
     var serverUrl = new UniformResourceLocator(url);
     if (!serverUrl.host) {
-        throw new Error('invalid url, missing host');
+        throw new Error('Invalid URL: ws://');
     }
-    serverUrl.protocol = serverUrl.protocol ? serverUrl.protocol : 'ws:';
-    serverUrl.pathname = serverUrl.pathname && serverUrl.pathname !== '/' ? serverUrl.pathname : defaultPath;
+    serverUrl.set('protocol', serverUrl.protocol ? serverUrl.protocol : 'ws:');
+    serverUrl.set('pathname', serverUrl.pathname && serverUrl.pathname !== '/' ? serverUrl.pathname : defaultPath);
     return serverUrl.href;
 };
 /**

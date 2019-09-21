@@ -11,7 +11,7 @@ var __assign = (this && this.__assign) || function () {
     return __assign.apply(this, arguments);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-global.Buffer = global.Buffer || require('buffer').Buffer;
+global.Buffer = require('buffer').Buffer;
 var message_parser_1 = require("@deepstream/protobuf/dist/src/message-parser");
 var message_builder_1 = require("@deepstream/protobuf/dist/src/message-builder");
 var constants_1 = require("../constants");
