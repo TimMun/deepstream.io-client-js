@@ -1,12 +1,13 @@
-let UniformResourceLocator: any
+// let UniformResourceLocator: any
 
 // if (typeof URL === 'undefined') {
 //   UniformResourceLocator = require('url').URL
 // } else {
 //   UniformResourceLocator = URL
 // }
-// Force using the url from package.json
-UniformResourceLocator = require('url')
+
+// Force using url from package.json
+var UniformResourceLocator = require('url').URL
 
 /**
  * Compares two objects for deep (recoursive) equality
@@ -100,7 +101,7 @@ export const parseUrl = (initialURl: string, defaultPath: string): string => {
   } else if (url.indexOf('//') === 0) {
     url = `ws:${url}`
   }
-  const serverUrl = UniformResourceLocator.parse(url)
+  const serverUrl = new UniformResourceLocator(url)
   if (!serverUrl.host) {
     throw new Error('invalid url, missing host')
   }
