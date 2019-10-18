@@ -95,8 +95,9 @@ export class PresenceHandler {
       }
       if (!this.subscriptionEmitter.hasListeners(user)) {
         this.bulkSubscription.unsubscribe(user)
-        return
+        // return
       }
+      return // Added
     }
 
     if (userOrCallback && typeof userOrCallback === 'function') {
