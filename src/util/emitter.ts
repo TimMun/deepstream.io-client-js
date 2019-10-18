@@ -118,4 +118,26 @@ export class Emitter {
     }
     return [...this.callbacks.keys()]
   }
+
+  public hasListenerForFunction (event: string, fn: Function, context?: any) {
+    if (this.callbacks === null) {
+        return false
+    }
+    let callbacks = this.callbacks.get(event)
+    if (!callbacks || callbacks.length === 0) {
+      return false
+    }
+
+    if (context) {
+      callbacks = callbacks.filter(({ scope }) => scope === context)
+    }
+
+    let hasCallback = false
+    callbacks.map((cb) => {
+      if (cb.fn === fn) {
+        hasCallback = true
+      }
+    })
+    return hasCallback
+  }
 }
