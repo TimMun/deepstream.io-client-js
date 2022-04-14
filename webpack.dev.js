@@ -2,13 +2,12 @@ const webpack = require('webpack');
 
 module.exports = {
   mode: 'development',
-  entry: ['./src/deepstream.ts'],
+  entry: ['./src/deepstream'],
   output: {
     path: __dirname,
     filename: './dist/bundle/ds.js',
-    library: 'deepstream',
+    library: 'DeepstreamClient',
     libraryTarget: 'umd',
-    umdNamedDefine: true,
     globalObject: 'this'
   },
   resolve: {
@@ -16,7 +15,9 @@ module.exports = {
   },
   module: {
     rules: [{
-      test: /\.ts$/, loaders: ['ts-loader'], exclude: /node_modules/
+      test: /\.ts$/,
+      loader: 'ts-loader',
+      exclude: /node_modules/
     }],
   },
   plugins: [

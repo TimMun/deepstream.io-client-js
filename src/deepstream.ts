@@ -1,13 +1,7 @@
-import { Client } from './client'
-import * as C from './constants'
-import {Options} from './client-options'
+import { DeepstreamClient, C, DefaultOptions } from './deepstream-client'
 
-const client = (url: string, options?: Partial<Options>): Client => {
-    return new Client(url, options)
+export {
+  DeepstreamClient,
+  C,
+  DefaultOptions as Options
 }
-export = Object.assign(client, {
-    CONNECTION_STATE: C.CONNECTION_STATE,
-    C,
-    EVENT: C.EVENT,
-    deepstream: client
-})

@@ -32,14 +32,17 @@ export class StateMachine {
         if (transition.handler) {
           transition.handler.call(this.context)
         }
+        if (transition.isEndState === true) {
+          this.inEndState = true
+        }
         return
       }
     }
-    const details = JSON.stringify({ transition: transitionName, state: this.state })
-    const debugHistory = this.history.reduce((result, entry) =>
+    const details = JSON.stringify({ transition: transitionName, fromState: this.state })
+    const debugHistory = this.history.reverse().reduce((result, entry) =>
       result += `\n\tFrom ${entry.oldState} to ${entry.newState} via ${entry.transitionName}`
     , '')
-    console.error(`Invalid state transition.\nDetails: ${details} \nHistory: ${debugHistory}`)
+    console.trace(`Invalid state transition.\nDetails: ${details} \nHistory: ${debugHistory}`)
   }
 
 }

@@ -1,4 +1,4 @@
-import { Services, offlineStoreWriteResponse } from '../client'
+import { Services, offlineStoreWriteResponse } from '../deepstream-client'
 import { Options } from '../client-options'
 import { EVENT, RecordData, TOPIC, RecordMessage, RecordWriteMessage, RECORD_ACTION } from '../constants'
 import { MergeStrategy } from './merge-strategy'
@@ -186,9 +186,7 @@ export class RecordCore<Context = null> extends Emitter {
       callback(context)
       return
     }
-    if (callback) {
-      this.readyCallbacks.push({ callback, context })
-    }
+    this.readyCallbacks.push({ callback, context })
   }
 
   /**
@@ -286,7 +284,7 @@ export class RecordCore<Context = null> extends Emitter {
  * If called with true for triggerNow, the callback will
  * be called immediatly with the current value
  */
-  public subscribe (args: utils.RecordSubscribeArguments) {
+  public subscribe (args: utils.RecordSubscribeArguments, context?: any) {
     if (args.path !== undefined && (typeof args.path !== 'string' || args.path.length === 0)) {
       throw new Error('invalid argument path')
     }
@@ -300,11 +298,11 @@ export class RecordCore<Context = null> extends Emitter {
 
     if (args.triggerNow) {
       this.whenReadyInternal(null, () => {
-        this.emitter.on(args.path || '', args.callback)
+        this.emitter.on(args.path || '', args.callback, context)
         args.callback(this.get(args.path))
       })
     } else {
-      this.emitter.on(args.path || '', args.callback)
+      this.emitter.on(args.path || '', args.callback, context)
     }
   }
 
@@ -323,7 +321,7 @@ export class RecordCore<Context = null> extends Emitter {
    *                                          method was passed to subscribe, the same method
    *                                          must be passed to unsubscribe as well.
    */
-  public unsubscribe (args: utils.RecordSubscribeArguments) {
+  public unsubscribe (args: utils.RecordSubscribeArguments, context?: any) {
     if (args.path !== undefined && (typeof args.path !== 'string' || args.path.length === 0)) {
       throw new Error('invalid argument path')
     }
@@ -335,7 +333,7 @@ export class RecordCore<Context = null> extends Emitter {
       return
     }
 
-    this.emitter.off(args.path || '', args.callback)
+    this.emitter.off(args.path || '', args.callback, context)
   }
 
   /**
@@ -508,7 +506,6 @@ export class RecordCore<Context = null> extends Emitter {
         // it might result in another merge conflict.
         return
       }
-
       this.applyUpdate(message as RecordWriteMessage)
       return
     }
@@ -530,14 +527,14 @@ export class RecordCore<Context = null> extends Emitter {
     }
 
     if (message.action === RECORD_ACTION.VERSION_EXISTS) {
-      // what kind of message is version exists?
-      // this.recoverRecord(message)
+      this.recoverRecordFromMessage(message as RecordWriteMessage)
       return
     }
 
     if (
       message.action === RECORD_ACTION.MESSAGE_DENIED ||
-      message.action === RECORD_ACTION.MESSAGE_PERMISSION_ERROR
+      message.action === RECORD_ACTION.MESSAGE_PERMISSION_ERROR ||
+      message.action === RECORD_ACTION.RECORD_UPDATE_ERROR
     ) {
       if (
         message.originalAction === RECORD_ACTION.SUBSCRIBECREATEANDREAD ||
@@ -551,9 +548,16 @@ export class RecordCore<Context = null> extends Emitter {
         }
         this.services.timeoutRegistry.remove(subscribeMsg) // TODO: This doesn't contain correlationIds
         this.services.timeoutRegistry.remove(actionMsg)
+        this.services.logger.error(message)
       }
 
-      this.emit(EVENT.RECORD_ERROR, RECORD_ACTION[RECORD_ACTION.MESSAGE_DENIED], RECORD_ACTION[message.originalAction as number])
+      // handle message denied on record set with ack
+      if (message.isWriteAck) {
+        this.recordServices.writeAckService.recieve(message)
+        return
+      }
+
+      this.emit(EVENT.RECORD_ERROR, RECORD_ACTION[message.action], RECORD_ACTION[message.originalAction as number])
 
       if (message.originalAction === RECORD_ACTION.DELETE) {
         if (this.deleteResponse!.callback) {
@@ -573,11 +577,16 @@ export class RecordCore<Context = null> extends Emitter {
       this.emit(EVENT.RECORD_HAS_PROVIDER_CHANGED, this.hasProvider)
       return
     }
+
+    if (message.action === RECORD_ACTION.CACHE_RETRIEVAL_TIMEOUT || message.action === RECORD_ACTION.STORAGE_RETRIEVAL_TIMEOUT) {
+      this.services.logger.error(message)
+      return
+    }
   }
 
   public handleReadResponse (message: any): void {
     if (this.stateMachine.state === RECORD_STATE.MERGING) {
-      this.recoverRecord(message.version!, message.parsedData)
+      this.recoverRecordFromMessage(message)
       this.recordServices.dirtyService.setDirty(this.name, false)
       return
     }
@@ -614,7 +623,7 @@ export class RecordCore<Context = null> extends Emitter {
           this.sendRead()
           this.recordServices.readRegistry.register(this.name, this, this.handleReadResponse)
         } else {
-          this.recoverRecord(-1, null)
+          this.recoverRecordDeletedRemotely()
         }
       }
     } else {
@@ -626,7 +635,7 @@ export class RecordCore<Context = null> extends Emitter {
          /**
           *  deleted and created again remotely, up to merge conflict I guess
           */
-         this.recoverRecord(-1, null)
+         this.recoverRecordDeletedRemotely()
         } else {
           this.sendRead()
           this.recordServices.readRegistry.register(this.name, this, this.handleReadResponse)
@@ -715,8 +724,9 @@ export class RecordCore<Context = null> extends Emitter {
         * the full state of the record
         **/
         this.sendRead()
+        this.recordServices.readRegistry.register(this.name, this, this.handleReadResponse)
       } else {
-        this.recoverRecord(message.version, data)
+        this.recoverRecordFromMessage(message)
       }
       return
     }
@@ -755,7 +765,7 @@ export class RecordCore<Context = null> extends Emitter {
       const newValue = getPath(newData, paths[i], false)
       const oldValue = getPath(oldData, paths[i], false)
 
-      if (newValue !== oldValue || (force && newValue)) {
+      if (!utils.deepEquals(newValue, oldValue) || (force && newValue)) {
         this.emitter.emit(paths[i], this.get(paths[i]))
       }
     }
@@ -785,22 +795,25 @@ export class RecordCore<Context = null> extends Emitter {
     })
   }
 
-  /**
-   * Called when a merge conflict is detected by a VERSION_EXISTS error or if an update recieved
-   * is directly after the clients. If no merge strategy is configure it will emit a VERSION_EXISTS
-   * error and the record will remain in an inconsistent state.
-   *
-   * @param   {Number} remoteVersion The remote version number
-   * @param   {Object} remoteData The remote object data
-   * @param   {Object} message parsed and validated deepstream message
-   */
-  public recoverRecord (remoteVersion: number, remoteData: RecordData) {
+  public recoverRecordFromMessage (message: RecordWriteMessage) {
     this.recordServices.mergeStrategy.merge(
-      this.name,
+      message,
       (this.version as number),
       this.get(),
-      remoteVersion,
-      remoteData,
+      this.onRecordRecovered,
+      this,
+    )
+  }
+
+  public recoverRecordDeletedRemotely () {
+    this.recordServices.mergeStrategy.merge(
+      {
+        name: this.name,
+        version: -1,
+        parsedData: null
+      } as RecordMessage,
+      (this.version as number),
+      this.get(),
       this.onRecordRecovered,
       this
     )
@@ -811,9 +824,15 @@ export class RecordCore<Context = null> extends Emitter {
  * record state, else emit and error and the record will remain in an
  * inconsistent state until the next update.
  */
-  public onRecordRecovered (error: string | null, recordName: string, mergedData: RecordData, remoteVersion: number, remoteData: RecordData): void {
+  public onRecordRecovered (error: string | null, recordMessage: RecordMessage, mergedData: RecordData): void {
+    const { version: remoteVersion, parsedData: remoteData } = recordMessage
+
     if (error) {
       this.services.logger.error({ topic: TOPIC.RECORD }, EVENT.RECORD_VERSION_EXISTS)
+      if (recordMessage.correlationId) {
+        this.recordServices.writeAckService.recieve({ ...recordMessage, reason: error  })
+      }
+      return
     }
 
     if (mergedData === null) {
@@ -826,11 +845,21 @@ export class RecordCore<Context = null> extends Emitter {
       return
     }
 
-    this.version = remoteVersion
+    this.version = remoteVersion!
     const oldValue = this.data
 
     if (utils.deepEquals(oldValue, remoteData)) {
-      this.stateMachine.transition(RECORD_OFFLINE_ACTIONS.MERGED)
+      if (this.stateMachine.state === RECORD_STATE.MERGING) {
+        this.stateMachine.transition(RECORD_OFFLINE_ACTIONS.MERGED)
+      }
+      return
+    }
+
+    if (this.stateMachine.state !== RECORD_STATE.MERGING) {
+      this.services.logger.warn({
+        topic: TOPIC.RECORD,
+        action: RECORD_ACTION.VERSION_EXISTS
+      })
       return
     }
 
@@ -925,19 +954,20 @@ const recordStateTransitions = [
     { name: RECORD_OFFLINE_ACTIONS.RESUBSCRIBE, from: RECORD_STATE.LOADING_OFFLINE, to: RECORD_STATE.RESUBSCRIBING, handler: RecordCore.prototype.onResubscribing },
     { name: RECORD_OFFLINE_ACTIONS.RESUBSCRIBE, from: RECORD_STATE.READY, to: RECORD_STATE.RESUBSCRIBING, handler: RecordCore.prototype.onResubscribing },
     { name: RECORD_OFFLINE_ACTIONS.RESUBSCRIBE, from: RECORD_STATE.RESUBSCRIBING, to: RECORD_STATE.RESUBSCRIBING, handler: RecordCore.prototype.onResubscribing },
+    { name: RECORD_OFFLINE_ACTIONS.RESUBSCRIBE, from: RECORD_STATE.SUBSCRIBING, to: RECORD_STATE.SUBSCRIBING, handler: RecordCore.prototype.onSubscribing  },
     { name: RECORD_OFFLINE_ACTIONS.RESUBSCRIBE, from: RECORD_STATE.UNSUBSCRIBING, to: RECORD_STATE.UNSUBSCRIBING },
     { name: RECORD_OFFLINE_ACTIONS.RESUBSCRIBED, from: RECORD_STATE.RESUBSCRIBING, to: RECORD_STATE.READY, handler: RecordCore.prototype.onReady},
     { name: RECORD_OFFLINE_ACTIONS.INVALID_VERSION, from: RECORD_STATE.RESUBSCRIBING, to: RECORD_STATE.MERGING },
     { name: RECORD_OFFLINE_ACTIONS.MERGED, from: RECORD_STATE.MERGING, to: RECORD_STATE.READY, handler: RecordCore.prototype.onReady },
-    { name: RECORD_ACTION.DELETED, from: RECORD_STATE.MERGING, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted },
+    { name: RECORD_ACTION.DELETED, from: RECORD_STATE.MERGING, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted, isEndState: true },
     { name: RECORD_ACTION.DELETE, from: RECORD_STATE.MERGING, to: RECORD_STATE.DELETING },
     { name: RECORD_ACTION.DELETE, from: RECORD_STATE.READY, to: RECORD_STATE.DELETING },
-    { name: RECORD_ACTION.DELETED, from: RECORD_STATE.READY, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted },
-    { name: RECORD_ACTION.DELETED, from: RECORD_OFFLINE_ACTIONS.UNSUBSCRIBE_FOR_REAL, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted },
-    { name: RECORD_ACTION.DELETED, from: RECORD_STATE.UNSUBSCRIBING, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted },
-    { name: RECORD_ACTION.DELETE_SUCCESS, from: RECORD_STATE.DELETING, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted },
+    { name: RECORD_ACTION.DELETED, from: RECORD_STATE.READY, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted, isEndState: true },
+    { name: RECORD_ACTION.DELETED, from: RECORD_OFFLINE_ACTIONS.UNSUBSCRIBE_FOR_REAL, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted, isEndState: true },
+    { name: RECORD_ACTION.DELETED, from: RECORD_STATE.UNSUBSCRIBING, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted, isEndState: true },
+    { name: RECORD_ACTION.DELETE_SUCCESS, from: RECORD_STATE.DELETING, to: RECORD_STATE.DELETED, handler: RecordCore.prototype.onDeleted, isEndState: true },
     { name: RECORD_ACTION.UNSUBSCRIBE, from: RECORD_STATE.READY, to: RECORD_STATE.UNSUBSCRIBING },
     { name: RECORD_ACTION.SUBSCRIBE, from: RECORD_STATE.UNSUBSCRIBING, to: RECORD_STATE.READY },
-    { name: RECORD_OFFLINE_ACTIONS.UNSUBSCRIBE_FOR_REAL, from: RECORD_STATE.UNSUBSCRIBING, to: RECORD_STATE.UNSUBSCRIBED, handler: RecordCore.prototype.onUnsubscribed },
+    { name: RECORD_OFFLINE_ACTIONS.UNSUBSCRIBE_FOR_REAL, from: RECORD_STATE.UNSUBSCRIBING, to: RECORD_STATE.UNSUBSCRIBED, handler: RecordCore.prototype.onUnsubscribed, isEndState: true },
     { name: RECORD_OFFLINE_ACTIONS.INVALID_VERSION, from: RECORD_STATE.READY, to: RECORD_STATE.MERGING },
 ]

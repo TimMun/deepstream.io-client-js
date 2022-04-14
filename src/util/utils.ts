@@ -1,14 +1,3 @@
-// let UniformResourceLocator: any
-
-// if (typeof URL === 'undefined') {
-//   UniformResourceLocator = require('url').URL
-// } else {
-//   UniformResourceLocator = URL
-// }
-
-// Force using url-parse from package.json
-var UniformResourceLocator = require('url-parse');
-
 /**
  * Compares two objects for deep (recoursive) equality
  *
@@ -101,14 +90,30 @@ export const parseUrl = (initialURl: string, defaultPath: string): string => {
   } else if (url.indexOf('//') === 0) {
     url = `ws:${url}`
   }
-  const serverUrl = new UniformResourceLocator(url)
-  if (!serverUrl.host) {
+
+  const protocol = url.split('//')[0]
+  let host = url.split('//')[1]
+
+  if (!host) {
     throw new Error('Invalid URL: ws://')
   }
-  
-  serverUrl.set('protocol', serverUrl.protocol ? serverUrl.protocol : 'ws:')
-  serverUrl.set('pathname', serverUrl.pathname && serverUrl.pathname !== '/' ? serverUrl.pathname : defaultPath)
-  return serverUrl.href
+
+  let path = null
+  if (host.indexOf('/') > -1) {
+    path = host.split('/')
+    host = path.shift() || ''
+    path = '/' + path.join('')
+  } else {
+    if (host.indexOf('?') > -1) {
+      path = host.split('?')
+      host = path.shift() || ''
+      path = defaultPath + '?' + path.join('')
+    }
+  }
+
+  if (!path || path === '/') path = defaultPath
+
+  return `${protocol}//${host}${path}`
 }
 
 /**
@@ -212,4 +217,8 @@ export const normalizeArguments = (args: IArguments): RecordSubscribeArguments =
     }
   }
   return result
+}
+
+export const PromiseDelay = (time: number): Promise<void> => {
+  return new Promise(done => setTimeout(done, time))
 }

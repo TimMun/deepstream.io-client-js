@@ -1,3 +1,243 @@
+## [6.0.0] - 2022.03.17
+
+### Task
+
+- Handle write ack errors now sent by deepstream server >= v6.1.0. This comes with some changes to state machine logic.
+
+### Fix
+
+- Various error logs
+
+## [5.2.7] - 2022.02.20
+
+### Misc
+
+- Updating dependencies
+
+## [5.2.6] - 2022.01.09
+
+### Fix
+
+- Add missing read registry
+
+## [5.2.5] - 2021.09.24
+
+### Misc
+
+- Updating dependencies
+
+## [5.2.4] - 2021.04.05
+
+### Misc
+
+- Updating dependencies
+
+## [5.2.3] - 2021.05.02
+
+### Fix
+
+- ignore version conflicts that are of equal resolved values and state is not merging
+
+## [5.2.2] - 2021.04.20
+
+### Fix
+
+- ignore version conflicts that are of equal resolved values and state is not merging
+
+## [5.2.1] - 2021.01.11
+
+### Task
+
+Implement CI using github actions.
+
+## [5.2.0] - 2020.12.29
+
+### Breaking Change
+
+Remove rpcAcceptTimeout and rpcResponseTimeout from client logic. These timeouts will be handled server side only.
+
+## [5.1.12] - 2020.12.4
+
+### Fix
+
+- send heartbeats strictly according to `heartbeatInterval`.
+
+
+## [5.1.11] - 2020.12.1
+
+### Fix
+
+- Send heartbeat packets according to `lastSentMessageTimestamp`, not `lastRecievedMessageTimestamp`.
+
+### Misc
+
+- Updating dependencies
+
+## [5.1.10] - 2020.09.24
+
+### Fix
+
+- React-native postinstall script for Windows
+
+## [5.1.9] - 2020.09.22
+
+### Fix
+
+- Typescript definitions for record subscribe method
+
+## [5.1.8] - 2020.09.17
+
+### Fix
+
+- React-native post install script must point to non-minified bundle.
+
+## [5.1.7] - 2020.09.10
+
+### Fix
+
+- Remove callback after calling single notifier with error. This was preventing future messages from being sent after reconnection.
+
+## [5.1.6] - 2020.09.04
+
+### Fix
+
+- Undo last changes to  `discard()` and `unsubscribe()` logic. Those operations only affect the current record instances, not all instances of the record in the client.
+- provide context for record subscriptions
+- Fix emitter logic
+
+## [5.1.5] - 2020.08.18
+
+### Fix
+
+- Discard all references of a record when calling `.discard()`
+- Remove subscriptions from record reference when calling `.unsubscribe()`
+
+## [5.1.4] - 2020.07.29
+
+### Chore
+
+- Bump dependencies
+
+## [5.1.3] - 2020.07.14
+
+### Fix
+
+- set main file in package.json to `dist/src/deepstream.js`
+- add postinstall script that works when passing the `DEEPSTREAM_ENV=react-native` variable to the npm install command in order to change the main file in package.json to `dist/bundle/ds.min.js` for react-native usage.
+
+
+## [5.1.2] - 2020.07.05
+
+### Fix
+
+- set main file in package.json to minified bundle
+- Revert the explicit Buffer import since it's not required when using the bundled client file.
+
+## [5.1.1] - 2020.06.30
+
+### Fix
+
+- Manipulate string url in socket factory without external dependencies. Fixes #515
+- Export the client constructor as object in order to maintain api in bundle.Fixes #528
+- Make explicit Buffer import. Fixes #529
+
+## [5.1.0] - 2020.05.11
+
+### Feature
+
+Send down sdkVersion and sdkType to server on challenge for better metrics
+
+### Fix
+
+Fixes #504: WriteAcks on conflicts
+
+  This needs to be used with server 5.0.17 in order to work.
+
+  The issue was VERSION_EXISTS didn't go through the ack service
+  which resulted in it never reacting.
+
+  To test this, run `ts-node bugs/504-merge-conflict-silent.ts` in
+  two terminals
+
+Fix connection timeouts if server doesn't send something in time
+
+When a user has permission to read but not write to record, when trying to set with ack the error callback was not triggered and the client hanged indefinitely.
+
+## [5.0.8] - 2020.04.15
+
+### Fix
+
+Deep-compare method in record change event emitter, this prevents spurious events when users are subscribed to a record path pointing to an object.
+
+### Improvement
+
+Updating dependencies
+
+## [5.0.7] - 2020.02.08
+
+### Fix
+
+Revert: Allow to work on react native (at cost of bigger bundle size)
+
+## [5.0.6] - 2020.02.08
+
+### Improvement
+
+Updating dependencies
+
+### Fix
+
+Allow to work on react native (at cost of bigger bundle size)
+
+## [5.0.5] - 2019.11.21
+
+### Fix
+
+Method signature for the `DeepstreamClient.login()` overload that takes only a callback was incorrect
+
+## [5.0.4] - 2019.11.03
+
+### Fix
+
+Linting issue failed release build
+
+## [5.0.3] - 2019.11.03
+
+### Fix
+
+Actual library fix, previous one was a spoof
+
+## [5.0.2] - 2019.11.03
+
+### Fix
+
+Adding library directly into browser from webpack should expose DeepstreamClient globally
+
+## [5.0.1] - 2019.10.29
+
+### Fix
+
+Added a missing transition state on record resubscription
+
+## [5.0.0] - 2019.10.27
+
+### Breaking Change
+
+Importing and creating the client has changed in order to be less insane when using typescript.
+
+When creating the client you now do:
+
+```typescript
+const { DeepstreamClient } = require('@deepstream/client')
+const dsClient = new DeepstreamClient(url, options)
+```
+
+instead of:
+
+```javascript
+const deepstream = require('@deepstream/client')
+const dsClient = deepstream(url, options)
+```
 
 ## [4.1.3] - 2019.09.09
 
@@ -38,7 +278,7 @@ intervalTimerResolution: 50,
 
 Either ways both implementations are expensive in terms of garbage collection since it binds to the context and data as part of the API. This can probably be avoided by providing a null context going forward.
 
-### Fix 
+### Fix
 
 Lists were not propagating the events on record-core. Discard, delete and error is now properly passed, and documentation needs to be updated to indicate the ready event was dropped in V4
 
@@ -62,7 +302,7 @@ Adding notify on record handler to notify if the db was changed without using de
 
 ### Fix
 
-Change error message on connection to pass through error 
+Change error message on connection to pass through error
 
 ### Breaking Change
 

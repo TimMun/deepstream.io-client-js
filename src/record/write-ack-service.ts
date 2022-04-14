@@ -1,6 +1,6 @@
 
 import { EVENT, Message, RECORD_ACTION } from '../constants'
-import { Services } from '../client'
+import { Services } from '../deepstream-client'
 import { WriteAckCallback } from './record-core'
 
 export class WriteAcknowledgementService {
@@ -36,14 +36,18 @@ export class WriteAcknowledgementService {
     const response = this.responses.get(id)
     if (
       !response ||
-      (message.action !== RECORD_ACTION.WRITE_ACKNOWLEDGEMENT && !message.isError)
+      (message.action !== RECORD_ACTION.WRITE_ACKNOWLEDGEMENT && !message.isError && !message.isWriteAck)
     ) {
       return
     }
 
-    message.isError
-      ? response(RECORD_ACTION[message.action as RECORD_ACTION], message.name!)
-      : response(null, message.name!)
+    if (message.action === RECORD_ACTION.VERSION_EXISTS) {
+      response(message.reason || 'Write failed due to conflict', message.name!)
+    } else {
+      message.isError
+        ? response(RECORD_ACTION[message.action as RECORD_ACTION], message.name!)
+        : response(null, message.name!)
+    }
 
     this.responses.delete(id)
   }

@@ -4,6 +4,8 @@ import { RecordCore, WriteAckCallback } from './record-core'
 import { MergeStrategy } from './merge-strategy'
 import { Emitter } from '../util/emitter'
 
+export type SubscriptionCallback = (data: any) => void
+
 export class Record extends Emitter  {
     public  debugId = this.record.getDebugId()
     private subscriptions: utils.RecordSubscribeArguments[] = []
@@ -93,27 +95,30 @@ export class Record extends Emitter  {
         }
     }
 
-    public subscribe (path: string, callback: (data: any) => void, triggerNow?: boolean) {
+    public subscribe (callback: SubscriptionCallback, triggerNow?: boolean): void
+    public subscribe (path: string, callback: SubscriptionCallback, triggerNow?: boolean): void
+    public subscribe (pathOrCallback: string | SubscriptionCallback , callbackOrTriggerNow?: SubscriptionCallback | boolean, triggerNow?: boolean): void {
         const parameters = utils.normalizeArguments(arguments)
         this.subscriptions.push(parameters)
-        this.record.subscribe(parameters)
+        this.record.subscribe(parameters, this)
     }
 
-    public unsubscribe (path: string, callback: (data: any) => void): void {
+    public unsubscribe (callback: SubscriptionCallback): void
+    public unsubscribe (path: string, callback: SubscriptionCallback): void
+    public unsubscribe (pathOrCallback: string | SubscriptionCallback, callback?: SubscriptionCallback): void {
         const parameters = utils.normalizeArguments(arguments)
-        this.subscriptions = this.subscriptions.filter(subscription => {
-            return (
-                subscription.path !== parameters.path ||
-                subscription.callback !== parameters.callback
-            )
+        this.subscriptions = this.subscriptions.filter((subscription: any) => {
+          if (!parameters.callback && (subscription.path === parameters.path)) return false
+          if (parameters.callback && (subscription.path === parameters.path && subscription.callback === parameters.callback)) return false
+          return true
         })
 
-        this.record.unsubscribe(parameters)
+        this.record.unsubscribe(parameters, this)
     }
 
     public discard (): void {
         for (let i = 0; i < this.subscriptions.length; i++) {
-            this.record.unsubscribe(this.subscriptions[i])
+            this.record.unsubscribe(this.subscriptions[i], this)
         }
         this.record.removeReference(this)
         this.record.removeContext(this)

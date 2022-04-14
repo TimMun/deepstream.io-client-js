@@ -1,4 +1,4 @@
-import { Services } from '../client'
+import { Services } from '../deepstream-client'
 import { Options } from '../client-options'
 import { EVENT, RPC_ACTION, TOPIC, RPCResult, RPCMessage, Message } from '../constants'
 import { RPC, RPCMakeCallback } from '../rpc/rpc'
@@ -215,6 +215,7 @@ export class RPCHandler {
         rpc.error(message.parsedData)
       } else if (
         message.action === RPC_ACTION.RESPONSE_TIMEOUT ||
+        message.action === RPC_ACTION.ACCEPT_TIMEOUT ||
         message.action === RPC_ACTION.NO_RPC_PROVIDER
       ) {
         rpc.error(RPC_ACTION[message.action])

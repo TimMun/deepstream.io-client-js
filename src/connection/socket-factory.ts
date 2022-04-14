@@ -1,7 +1,7 @@
 global.Buffer = require('buffer').Buffer
 import { parse } from '@deepstream/protobuf/dist/src/message-parser'
 import { getMessage } from '@deepstream/protobuf/dist/src/message-builder'
-import {Socket} from '../client'
+import {Socket} from '../deepstream-client'
 import { JSONObject, TOPIC, Message, CONNECTION_ACTION } from '../constants'
 
 const BrowserWebsocket = (global.WebSocket || global.MozWebSocket) as any
@@ -20,7 +20,7 @@ export const socketFactory: SocketFactory = (url, options = { jsonTransportMode:
     const buildMessage = options.jsonTransportMode !== true ? getMessage : (message: Message, isAck: boolean) => JSON.stringify({ ...message, isAck })
 
     const pingMessage = buildMessage({ topic: TOPIC.CONNECTION, action: CONNECTION_ACTION.PING }, false)
-    let pingInterval: NodeJS.Timeout | null = null
+    let pingInterval: number | null = null
     let lastRecievedMessageTimestamp = -1
 
     // tslint:disable-next-line:no-empty
@@ -36,8 +36,8 @@ export const socketFactory: SocketFactory = (url, options = { jsonTransportMode:
         socket.onparsedmessages(parseResults)
     }
     socket.getTimeSinceLastMessage = () => {
-        return 0
-        // return Date.now() - lastRecievedMessageTimestamp
+      if (lastRecievedMessageTimestamp < 0) return 0
+      return Date.now() - lastRecievedMessageTimestamp
     }
     socket.sendParsedMessage = (message: Message): void => {
         if (message.topic === TOPIC.CONNECTION && message.action === CONNECTION_ACTION.CLOSING) {
@@ -66,14 +66,12 @@ export const socketFactory: SocketFactory = (url, options = { jsonTransportMode:
     socket.onopened = null
     socket.onopen = () => {
         pingInterval = setInterval(() => {
-            if (Date.now() - lastRecievedMessageTimestamp > heartBeatInterval) {
-                try {
-                    socket.send(pingMessage)
-                } catch (e) {
-                    clearTimeout(pingInterval!)
-                }
+            try {
+                socket.send(pingMessage)
+            } catch (e) {
+                clearTimeout(pingInterval!)
             }
-        }, heartBeatInterval)
+        }, heartBeatInterval) as never as number
         socket.onopened()
     }
 

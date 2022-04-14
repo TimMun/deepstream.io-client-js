@@ -1,6 +1,6 @@
 
 import { EVENT, Message, RECORD_ACTION, TOPIC } from '../constants'
-import { Services } from '../client'
+import { Services } from '../deepstream-client'
 
 /**
  * Provides a scaffold for subscriptionless requests to deepstream, such as the SNAPSHOT
@@ -55,6 +55,7 @@ export class SingleNotifier<MessageType extends Message> {
     } else if (this.services.connection.isInLimbo) {
       this.limboQueue.push(message)
     } else {
+      this.requests.delete(name)
       callback(EVENT.CLIENT_OFFLINE)
     }
   }
