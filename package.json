@@ -30,8 +30,7 @@
     "lint:fix": "npm run lint -- --fix",
     "test": "mocha src/**/*.spec.ts",
     "test:coverage": "nyc npm test",
-    "bundle:analyse": "webpack --config webpack.prod.js --profile --json > ./dist/stats.json && webpack-bundle-analyzer ./dist/stats.json",
-    "postinstall": "node scripts/postinstall.js"
+    "bundle:analyse": "webpack --config webpack.prod.js --profile --json > ./dist/stats.json && webpack-bundle-analyzer ./dist/stats.json"
   },
   "repository": {
     "type": "git",

@@ -28,5 +28,6 @@ module.exports = {
     fs: 'empty',
     module: 'empty',
     url: 'empty',
-  }
+  },
+  devtool: "nosources-source-map"
 };
