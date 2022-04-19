@@ -176,6 +176,28 @@ var Emitter = /** @class */ (function () {
         }
         return __spreadArray([], __read(this.callbacks.keys()), false);
     };
+    Emitter.prototype.hasListenerForFunction = function (event, fn, context) {
+        if (this.callbacks === null) {
+            return false;
+        }
+        var callbacks = this.callbacks.get(event);
+        if (!callbacks || callbacks.length === 0) {
+            return false;
+        }
+        if (context) {
+            callbacks = callbacks.filter(function (_a) {
+                var scope = _a.scope;
+                return scope === context;
+            });
+        }
+        var hasCallback = false;
+        callbacks.map(function (cb) {
+            if (cb.fn === fn) {
+                hasCallback = true;
+            }
+        });
+        return hasCallback;
+    };
     return Emitter;
 }());
 exports.Emitter = Emitter;

@@ -16,6 +16,7 @@ export declare class PresenceHandler {
     private limboQueue;
     private readonly bulkSubscription;
     constructor(services: Services, options: Options);
+    hasListener(user: string, callback: SubscribeCallback): boolean;
     subscribe(callback: SubscribeCallback): void;
     subscribe(user: string, callback: SubscribeCallback): void;
     unsubscribe(): void;

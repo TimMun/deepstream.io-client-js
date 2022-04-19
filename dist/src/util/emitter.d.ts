@@ -20,4 +20,5 @@ export declare class Emitter {
      * Returns an array listing the events for which the emitter has registered listeners.
      */
     eventNames(): string[];
+    hasListenerForFunction(event: string, fn: Function, context?: any): boolean;
 }

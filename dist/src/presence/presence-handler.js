@@ -43,6 +43,9 @@ var PresenceHandler = /** @class */ (function () {
         this.services.connection.onLost(this.onExitLimbo.bind(this));
         this.services.connection.onReestablished(this.onConnectionReestablished.bind(this));
     }
+    PresenceHandler.prototype.hasListener = function (user, callback) {
+        return this.subscriptionEmitter.hasListenerForFunction(user, callback);
+    };
     PresenceHandler.prototype.subscribe = function (userOrCallback, callback) {
         if (typeof userOrCallback === 'string' && userOrCallback.length > 0 && typeof callback === 'function') {
             var user = userOrCallback;
@@ -75,8 +78,9 @@ var PresenceHandler = /** @class */ (function () {
             }
             if (!this.subscriptionEmitter.hasListeners(user)) {
                 this.bulkSubscription.unsubscribe(user);
-                return;
+                // return
             }
+            return; // Added
         }
         if (userOrCallback && typeof userOrCallback === 'function') {
             callback = userOrCallback;

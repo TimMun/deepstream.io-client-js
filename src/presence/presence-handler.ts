@@ -56,6 +56,10 @@ export class PresenceHandler {
     this.services.connection.onReestablished(this.onConnectionReestablished.bind(this))
   }
 
+  public hasListener (user: string, callback: SubscribeCallback): boolean {
+    return this.subscriptionEmitter.hasListenerForFunction(user, callback)
+  }
+
   public subscribe (callback: SubscribeCallback): void
   public subscribe (user: string, callback: SubscribeCallback): void
   public subscribe (userOrCallback: string | SubscribeCallback, callback?: SubscribeCallback): void {
@@ -95,8 +99,9 @@ export class PresenceHandler {
       }
       if (!this.subscriptionEmitter.hasListeners(user)) {
         this.bulkSubscription.unsubscribe(user)
-        return
+        // return
       }
+      return // Added
     }
 
     if (userOrCallback && typeof userOrCallback === 'function') {
